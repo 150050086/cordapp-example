@@ -15,6 +15,14 @@ import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.ProgressTracker.Step
 
+/* Added by Nihhaar */
+import java.lang.System
+import kotlin.text.Regex
+import java.io.File
+import java.nio.file.Paths
+import java.time.*
+/* End */
+
 /**
  * This flow allows two parties (the [Initiator] and the [Acceptor]) to come to an agreement about the IOU encapsulated
  * within an [IOUState].
@@ -63,6 +71,7 @@ object ExampleFlow {
          */
         @Suspendable
         override fun call(): SignedTransaction {
+            val start = System.currentTimeMillis() // added by Nihhaar
             // Obtain a reference to the notary we want to use.
             val notary = serviceHub.networkMapCache.notaryIdentities[0]
 
@@ -94,7 +103,20 @@ object ExampleFlow {
             // Stage 5.
             progressTracker.currentStep = FINALISING_TRANSACTION
             // Notarise and record the transaction in both parties' vaults.
-            return subFlow(FinalityFlow(fullySignedTx, FINALISING_TRANSACTION.childProgressTracker()))
+            var subflow = subFlow(FinalityFlow(fullySignedTx, FINALISING_TRANSACTION.childProgressTracker()))
+            
+            /* Added by Nihhaar */
+            val end = System.currentTimeMillis()
+            val home_dir = System.getProperty("user.home")
+            val regex = Regex("O=(.+?),")
+            var id = regex.find(ourIdentity.toString())?.groupValues?.getOrNull(1)
+            if(id == null){
+                id = ourIdentity.toString()
+            }
+            File(Paths.get(home_dir, id + ".log").toString()).appendText("CREATE_IOU: SUCCESS ${end-start} $start $end\n")
+            /* End */
+
+            return subflow
         }
     }
 
