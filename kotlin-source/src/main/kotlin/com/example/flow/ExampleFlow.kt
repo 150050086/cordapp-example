@@ -71,7 +71,7 @@ object ExampleFlow {
          */
         @Suspendable
         override fun call(): SignedTransaction {
-            val start = System.currentTimeMillis() // added by Nihhaar
+            val checkpoint1 = System.currentTimeMillis() // Added by Nihhaar
             // Obtain a reference to the notary we want to use.
             val notary = serviceHub.networkMapCache.notaryIdentities[0]
 
@@ -96,24 +96,21 @@ object ExampleFlow {
 
             // Stage 4.
             progressTracker.currentStep = GATHERING_SIGS
+            val checkpoint2 = System.currentTimeMillis() // Added by Nihhaar
             // Send the state to the counterparty, and receive it back with their signature.
             val otherPartyFlow = initiateFlow(otherParty)
             val fullySignedTx = subFlow(CollectSignaturesFlow(partSignedTx, setOf(otherPartyFlow), GATHERING_SIGS.childProgressTracker()))
 
             // Stage 5.
             progressTracker.currentStep = FINALISING_TRANSACTION
+            val checkpoint5 = System.currentTimeMillis() // Added by Nihhaar
             // Notarise and record the transaction in both parties' vaults.
             var subflow = subFlow(FinalityFlow(fullySignedTx, FINALISING_TRANSACTION.childProgressTracker()))
             
             /* Added by Nihhaar */
-            val end = System.currentTimeMillis()
+            val checkpoint6 = System.currentTimeMillis()
             val home_dir = System.getProperty("user.home")
-            val regex = Regex("O=(.+?),")
-            var id = regex.find(ourIdentity.toString())?.groupValues?.getOrNull(1)
-            if(id == null){
-                id = ourIdentity.toString()
-            }
-            File(Paths.get(home_dir, id + ".log").toString()).appendText("CREATE_IOU: SUCCESS ${end-start} $start $end\n")
+            File(Paths.get(home_dir, "Initiator.log").toString()).appendText("FLOW_START $runId $checkpoint1\nFLOW_SEND $runId $checkpoint2\nFLOW_RECV $runId $checkpoint5\nFLOW_END $runId $checkpoint6\nRPC_REQUEST_END $runId $checkpoint6\n")
             /* End */
 
             return subflow
@@ -124,6 +121,7 @@ object ExampleFlow {
     class Acceptor(val otherPartyFlow: FlowSession) : FlowLogic<SignedTransaction>() {
         @Suspendable
         override fun call(): SignedTransaction {
+            val checkpoint3 = System.currentTimeMillis() // Added by Nihhaar
             val signTransactionFlow = object : SignTransactionFlow(otherPartyFlow) {
                 override fun checkTransaction(stx: SignedTransaction) = requireThat {
                     val output = stx.tx.outputs.single().data
@@ -133,7 +131,13 @@ object ExampleFlow {
                 }
             }
 
-            return subFlow(signTransactionFlow)
+            var subflow = subFlow(signTransactionFlow)
+            /* Added by Nihhaar */
+            val checkpoint4 = System.currentTimeMillis()
+            val home_dir = System.getProperty("user.home")
+            File(Paths.get(home_dir, "Acceptor.log").toString()).appendText("FLOW_RECV $runId $checkpoint3\nFLOW_SEND $runId $checkpoint4\n")
+            /* End */
+            return subflow
         }
     }
 }
